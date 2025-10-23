@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Select Location</title>
+
+  <!-- Leaflet core -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+    #map { height: 100vh; width: 100%; position: relative; }
+
+    .search-container {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      width: 90%;
+      max-width: 600px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .search-top { display: flex; gap: 8px; }
+
+    #searchBar {
+      flex: 1;
+      padding: 12px 15px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      outline: none;
+      box-shadow: 0px 2px 6px rgba(0,0,0,0.2);
+    }
+
+    #locateBtn {
+      background-color: #9E090F;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 0 14px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0px 2px 6px rgba(0,0,0,0.2);
+    }
+
+    #locateBtn:hover { background-color: #f19203; }
+
+    #confirmBtn {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background-color: #9E090F;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    #suggestions {
+      background: white;
+      border-radius: 8px;
+      margin-top: 5px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      overflow: hidden;
+      display: none;
+    }
+
+    .suggestion { padding: 10px 15px; cursor: pointer; }
+    .suggestion:hover { background-color: #f2f2f2; }
+  </style>
+</head>
+<body>
+  <div id="map">
+    <div class="search-container">
+      <div class="search-top">
+        <input type="text" id="searchBar" placeholder="Search or pick a location..." autocomplete="off" />
+        <button id="locateBtn">📍</button>
+      </div>
+      <div id="suggestions"></div>
+    </div>
+    <button id="confirmBtn">Confirm Location</button>
+  </div>
+
+  <script>
+    const API_KEY = "9b451df6-44e1-451e-ad03-872f2420b92b";
+    const map = L.map('map').setView([31.963158, 35.930359], 8);
+
+    L.tileLayer(
+      `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png?api_key=${API_KEY}`,
+      { attribution: '&copy; OpenStreetMap & Stadia Maps', maxZoom: 20 }
+    ).addTo(map);
+
+    const marker = L.marker([31.963158, 35.930359], { draggable: true }).addTo(map);
+    const searchInput = document.getElementById('searchBar');
+    const suggestionsBox = document.getElementById('suggestions');
+    let selectedLat = 31.963158;
+    let selectedLng = 35.930359;
+
+    // Get address from coordinates
+    function updateAddress(lat, lng) {
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+        .then(res => res.json())
+        .then(data => {
+          const address = data.display_name || 'Unknown location';
+          searchInput.value = address;
+        })
+        .catch(() => searchInput.value = 'Failed to get address');
+    }
+
+    // Map click
+    map.on('click', e => {
+      const { lat, lng } = e.latlng;
+      selectedLat = lat; selectedLng = lng;
+      marker.setLatLng(e.latlng);
+      updateAddress(lat, lng);
+    });
+
+    // Marker drag
+    marker.on('dragend', e => {
+      const { lat, lng } = e.target.getLatLng();
+      selectedLat = lat; selectedLng = lng;
+      updateAddress(lat, lng);
+    });
+
+    // Locate button
+    document.getElementById('locateBtn').addEventListener('click', () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            selectedLat = lat; selectedLng = lng;
+            map.setView([lat, lng], 16);
+            marker.setLatLng([lat, lng]);
+            updateAddress(lat, lng);
+          },
+          () => alert('Please enable location access (GPS).')
+        );
+      } else {
+        alert('Your browser does not support geolocation.');
+      }
+    });
+
+    // Autocomplete search
+    searchInput.addEventListener("input", async (e) => {
+      const query = e.target.value.trim();
+      if (query.length < 3) {
+        suggestionsBox.style.display = "none";
+        return;
+      }
+
+      const res = await fetch(
+        `https://api.stadiamaps.com/geocoding/v1/autocomplete?api_key=${API_KEY}&q=${encodeURIComponent(query)}`
+      );
+      const data = await res.json();
+      suggestionsBox.innerHTML = "";
+      if (data.features && data.features.length > 0) {
+        data.features.forEach((feature) => {
+          const item = document.createElement("div");
+          item.className = "suggestion";
+          item.textContent = feature.properties.label;
+          item.onclick = () => {
+            const [lng, lat] = feature.geometry.coordinates;
+            selectedLat = lat; selectedLng = lng;
+            map.setView([lat, lng], 16);
+            marker.setLatLng([lat, lng]);
+            searchInput.value = feature.properties.label;
+            suggestionsBox.style.display = "none";
+          };
+          suggestionsBox.appendChild(item);
+        });
+        suggestionsBox.style.display = "block";
+      } else {
+        suggestionsBox.style.display = "none";
+      }
+    });
+
+    // Hide suggestions
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".search-container")) {
+        suggestionsBox.style.display = "none";
+      }
+    });
+
+    // Confirm Location → Save to Django + return to Android
+    document.getElementById("confirmBtn").addEventListener("click", async () => {
+      const address = searchInput.value;
+      const payload = { latitude: selectedLat, longitude: selectedLng };
+
+      await fetch("/select-location/save/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      // Deep link → back to app
+      window.location.href = `myapp://pick-location?lat=${selectedLat}&lng=${selectedLng}&address=${encodeURIComponent(address)}`;
+    });
+  </script>
+</body>
+</html>
