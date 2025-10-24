@@ -12,4 +12,6 @@ services:
       - key: DJANGO_SETTINGS_MODULE
         value: map_project.settings
       - key: PYTHON_VERSION
-        value: 3.11
+        value: 3.12.5
+      - key: DEBUG
+        value: "False"
