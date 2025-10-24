@@ -16,7 +16,7 @@ DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 # Allowed hosts
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
-ALLOWED_HOSTS = ["127.0.0.1", "10.0.2.2"]
+ALLOWED_HOSTS = ["127.0.0.1", "10.0.2.2", "localhost","location.onrender.com"]
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
