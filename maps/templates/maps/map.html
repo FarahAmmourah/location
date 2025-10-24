@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Select Location</title>
 
-  <!-- Leaflet core -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -107,7 +106,6 @@
     let selectedLat = 31.963158;
     let selectedLng = 35.930359;
 
-    // Get address from coordinates
     function updateAddress(lat, lng) {
       fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
         .then(res => res.json())
@@ -118,7 +116,6 @@
         .catch(() => searchInput.value = 'Failed to get address');
     }
 
-    // Map click
     map.on('click', e => {
       const { lat, lng } = e.latlng;
       selectedLat = lat; selectedLng = lng;
@@ -126,14 +123,12 @@
       updateAddress(lat, lng);
     });
 
-    // Marker drag
     marker.on('dragend', e => {
       const { lat, lng } = e.target.getLatLng();
       selectedLat = lat; selectedLng = lng;
       updateAddress(lat, lng);
     });
 
-    // Locate button
     document.getElementById('locateBtn').addEventListener('click', () => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -152,7 +147,6 @@
       }
     });
 
-    // Autocomplete search
     searchInput.addEventListener("input", async (e) => {
       const query = e.target.value.trim();
       if (query.length < 3) {
@@ -186,14 +180,12 @@
       }
     });
 
-    // Hide suggestions
     document.addEventListener("click", (e) => {
       if (!e.target.closest(".search-container")) {
         suggestionsBox.style.display = "none";
       }
     });
 
-    // Confirm Location → Save to Django + return to Android
     document.getElementById("confirmBtn").addEventListener("click", async () => {
       const address = searchInput.value;
       const payload = { latitude: selectedLat, longitude: selectedLng };
@@ -204,7 +196,6 @@
         body: JSON.stringify(payload)
       });
 
-      // Deep link → back to app
       window.location.href = `myapp://pick-location?lat=${selectedLat}&lng=${selectedLng}&address=${encodeURIComponent(address)}`;
     });
   </script>
