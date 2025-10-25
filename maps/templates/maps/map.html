@@ -22,7 +22,6 @@
       max-width: 600px;
       display: flex;
       flex-direction: column;
-      pointer-events: auto; /* 🧩 تفعيل تفاعل داخل السيرتش */
     }
 
     .search-top { display: flex; gap: 8px; }
@@ -76,7 +75,6 @@
       display: none;
       max-height: 200px;
       overflow-y: auto;
-      pointer-events: auto; 
     }
 
     .suggestion { padding: 10px 15px; cursor: pointer; }
@@ -166,13 +164,15 @@
 
     searchInput.addEventListener("input", async (e) => {
       const query = e.target.value.trim();
-      if (query.length < 3) {
+      if (query.length < 2) {
         suggestionsBox.style.display = "none";
         return;
       }
 
+      const fullQuery = `${query} Jordan`;
+
       const res = await fetch(
-        `https://api.stadiamaps.com/geocoding/v1/autocomplete?api_key=${API_KEY}&q=${encodeURIComponent(query)}`
+        `https://api.stadiamaps.com/geocoding/v1/autocomplete?api_key=${API_KEY}&q=${encodeURIComponent(fullQuery)}`
       );
       const data = await res.json();
       suggestionsBox.innerHTML = "";
@@ -196,7 +196,28 @@
         });
         suggestionsBox.style.display = "block";
       } else {
-        suggestionsBox.style.display = "none";
+        const nominatim = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullQuery)}`);
+        const results = await nominatim.json();
+        if (results.length > 0) {
+          results.forEach(r => {
+            const item = document.createElement("div");
+            item.className = "suggestion";
+            item.textContent = r.display_name;
+            item.onclick = () => {
+              selectedLat = parseFloat(r.lat);
+              selectedLng = parseFloat(r.lon);
+              map.setView([selectedLat, selectedLng], 16);
+              marker.setLatLng([selectedLat, selectedLng]);
+              marker.bindPopup(r.display_name).openPopup();
+              suggestionsBox.style.display = "none";
+              searchInput.value = "";
+            };
+            suggestionsBox.appendChild(item);
+          });
+          suggestionsBox.style.display = "block";
+        } else {
+          suggestionsBox.style.display = "none";
+        }
       }
     });
 
