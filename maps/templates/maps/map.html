@@ -73,10 +73,20 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
       overflow: hidden;
       display: none;
+      max-height: 200px;
+      overflow-y: auto;
     }
 
     .suggestion { padding: 10px 15px; cursor: pointer; }
     .suggestion:hover { background-color: #f2f2f2; }
+
+    /* Label فوق الـ pin */
+    .leaflet-popup-content {
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      color: #333;
+    }
   </style>
 </head>
 <body>
@@ -100,11 +110,13 @@
       { attribution: '&copy; OpenStreetMap & Stadia Maps', maxZoom: 20 }
     ).addTo(map);
 
-    const marker = L.marker([31.963158, 35.930359], { draggable: true }).addTo(map);
     const searchInput = document.getElementById('searchBar');
     const suggestionsBox = document.getElementById('suggestions');
     let selectedLat = 31.963158;
     let selectedLng = 35.930359;
+    let popup = L.popup({ offset: [0, -30] }); 
+    const marker = L.marker([selectedLat, selectedLng], { draggable: true }).addTo(map);
+    marker.bindPopup("Loading address...").openPopup();
 
     function updateAddress(lat, lng) {
       fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
@@ -112,8 +124,9 @@
         .then(data => {
           const address = data.display_name || 'Unknown location';
           searchInput.value = address;
+          marker.bindPopup(address).openPopup();
         })
-        .catch(() => searchInput.value = 'Failed to get address');
+        .catch(() => marker.bindPopup('Failed to get address').openPopup());
     }
 
     map.on('click', e => {
@@ -159,6 +172,7 @@
       );
       const data = await res.json();
       suggestionsBox.innerHTML = "";
+
       if (data.features && data.features.length > 0) {
         data.features.forEach((feature) => {
           const item = document.createElement("div");
@@ -166,10 +180,12 @@
           item.textContent = feature.properties.label;
           item.onclick = () => {
             const [lng, lat] = feature.geometry.coordinates;
-            selectedLat = lat; selectedLng = lng;
+            selectedLat = lat;
+            selectedLng = lng;
             map.setView([lat, lng], 16);
             marker.setLatLng([lat, lng]);
             searchInput.value = feature.properties.label;
+            marker.bindPopup(feature.properties.label).openPopup();
             suggestionsBox.style.display = "none";
           };
           suggestionsBox.appendChild(item);
