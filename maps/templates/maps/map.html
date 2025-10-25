@@ -22,6 +22,7 @@
       max-width: 600px;
       display: flex;
       flex-direction: column;
+      pointer-events: auto; /* 🧩 تفعيل تفاعل داخل السيرتش */
     }
 
     .search-top { display: flex; gap: 8px; }
@@ -75,6 +76,7 @@
       display: none;
       max-height: 200px;
       overflow-y: auto;
+      pointer-events: auto; 
     }
 
     .suggestion { padding: 10px 15px; cursor: pointer; }
@@ -104,6 +106,10 @@
     const API_KEY = "9b451df6-44e1-451e-ad03-872f2420b92b";
     const map = L.map('map').setView([31.963158, 35.930359], 8);
 
+    const searchContainer = document.querySelector('.search-container');
+    L.DomEvent.disableClickPropagation(searchContainer);
+    L.DomEvent.disableScrollPropagation(searchContainer);
+
     L.tileLayer(
       `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png?api_key=${API_KEY}`,
       { attribution: '&copy; OpenStreetMap & Stadia Maps', maxZoom: 20 }
@@ -117,7 +123,6 @@
     const marker = L.marker([selectedLat, selectedLng], { draggable: true }).addTo(map);
     marker.bindPopup("Select a location").openPopup();
 
-    // ✅ show address only above pin (not in search bar)
     function updateAddress(lat, lng) {
       fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
         .then(res => res.json())
@@ -128,7 +133,6 @@
         .catch(() => marker.bindPopup('Failed to get address').openPopup());
     }
 
-    // 📍 click map
     map.on('click', e => {
       const { lat, lng } = e.latlng;
       selectedLat = lat; selectedLng = lng;
@@ -136,14 +140,12 @@
       updateAddress(lat, lng);
     });
 
-    // 🎯 drag pin
     marker.on('dragend', e => {
       const { lat, lng } = e.target.getLatLng();
       selectedLat = lat; selectedLng = lng;
       updateAddress(lat, lng);
     });
 
-    // 🔘 locate button
     document.getElementById('locateBtn').addEventListener('click', () => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -162,7 +164,6 @@
       }
     });
 
-    // 🔍 search autocomplete
     searchInput.addEventListener("input", async (e) => {
       const query = e.target.value.trim();
       if (query.length < 3) {
@@ -189,7 +190,7 @@
             marker.setLatLng([lat, lng]);
             marker.bindPopup(feature.properties.label).openPopup();
             suggestionsBox.style.display = "none";
-            searchInput.value = ""; // keep input empty
+            searchInput.value = "";
           };
           suggestionsBox.appendChild(item);
         });
@@ -205,7 +206,6 @@
       }
     });
 
-    // ✅ Confirm
     document.getElementById("confirmBtn").addEventListener("click", async () => {
       const payload = { latitude: selectedLat, longitude: selectedLng };
       await fetch("/select-location/save/", {
