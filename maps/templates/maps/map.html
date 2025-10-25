@@ -117,6 +117,7 @@
     const suggestionsBox = document.getElementById('suggestions');
     let selectedLat = 31.963158;
     let selectedLng = 35.930359;
+    let lastAddress = ""; 
 
     const marker = L.marker([selectedLat, selectedLng], { draggable: true }).addTo(map);
     marker.bindPopup("Select a location").openPopup();
@@ -125,24 +126,14 @@
       fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
         .then(res => res.json())
         .then(data => {
-          const address = data.display_name || 'Unknown location';
-          marker.bindPopup(address, { closeButton: false }).openPopup();
+          lastAddress = data.display_name || "Unknown location";
+          marker.bindPopup(lastAddress, { closeButton: false }).openPopup();
         })
-        .catch(() => marker.bindPopup('Failed to get address').openPopup());
+        .catch(() => {
+          lastAddress = "Failed to get address";
+          marker.bindPopup(lastAddress).openPopup();
+        });
     }
-
-    map.on('click', e => {
-      const { lat, lng } = e.latlng;
-      selectedLat = lat; selectedLng = lng;
-      marker.setLatLng(e.latlng);
-      updateAddress(lat, lng);
-    });
-
-    marker.on('dragend', e => {
-      const { lat, lng } = e.target.getLatLng();
-      selectedLat = lat; selectedLng = lng;
-      updateAddress(lat, lng);
-    });
 
     document.getElementById('locateBtn').addEventListener('click', () => {
       if (navigator.geolocation) {
@@ -150,7 +141,8 @@
           pos => {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
-            selectedLat = lat; selectedLng = lng;
+            selectedLat = lat;
+            selectedLng = lng;
             map.setView([lat, lng], 16);
             marker.setLatLng([lat, lng]);
             updateAddress(lat, lng);
@@ -162,6 +154,21 @@
       }
     });
 
+    map.on('click', e => {
+      const { lat, lng } = e.latlng;
+      selectedLat = lat;
+      selectedLng = lng;
+      marker.setLatLng(e.latlng);
+      updateAddress(lat, lng);
+    });
+
+    marker.on('dragend', e => {
+      const { lat, lng } = e.target.getLatLng();
+      selectedLat = lat;
+      selectedLng = lng;
+      updateAddress(lat, lng);
+    });
+
     searchInput.addEventListener("input", async (e) => {
       const query = e.target.value.trim();
       if (query.length < 2) {
@@ -171,9 +178,7 @@
 
       const fullQuery = `${query} Jordan`;
 
-      const res = await fetch(
-        `https://api.stadiamaps.com/geocoding/v1/autocomplete?api_key=${API_KEY}&q=${encodeURIComponent(fullQuery)}`
-      );
+      const res = await fetch(`https://api.stadiamaps.com/geocoding/v1/autocomplete?api_key=${API_KEY}&q=${encodeURIComponent(fullQuery)}`);
       const data = await res.json();
       suggestionsBox.innerHTML = "";
 
@@ -186,9 +191,10 @@
             const [lng, lat] = feature.geometry.coordinates;
             selectedLat = lat;
             selectedLng = lng;
+            lastAddress = feature.properties.label;
             map.setView([lat, lng], 16);
             marker.setLatLng([lat, lng]);
-            marker.bindPopup(feature.properties.label).openPopup();
+            marker.bindPopup(lastAddress).openPopup();
             suggestionsBox.style.display = "none";
             searchInput.value = "";
           };
@@ -206,9 +212,10 @@
             item.onclick = () => {
               selectedLat = parseFloat(r.lat);
               selectedLng = parseFloat(r.lon);
+              lastAddress = r.display_name;
               map.setView([selectedLat, selectedLng], 16);
               marker.setLatLng([selectedLat, selectedLng]);
-              marker.bindPopup(r.display_name).openPopup();
+              marker.bindPopup(lastAddress).openPopup();
               suggestionsBox.style.display = "none";
               searchInput.value = "";
             };
@@ -228,13 +235,16 @@
     });
 
     document.getElementById("confirmBtn").addEventListener("click", async () => {
-      const payload = { latitude: selectedLat, longitude: selectedLng };
+      const address = lastAddress || "Unknown location";
+      const payload = { latitude: selectedLat, longitude: selectedLng, address };
+
       await fetch("/select-location/save/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      window.location.href = `myapp://pick-location?lat=${selectedLat}&lng=${selectedLng}`;
+
+      window.location.href = `myapp://pick-location?lat=${selectedLat}&lng=${selectedLng}&address=${encodeURIComponent(address)}`;
     });
   </script>
 </body>
