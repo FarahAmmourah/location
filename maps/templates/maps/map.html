@@ -92,7 +92,7 @@
   <div id="map">
     <div class="search-container">
       <div class="search-top">
-        <input type="text" id="searchBar" placeholder="Search or pick a location..." autocomplete="off" />
+        <input type="text" id="searchBar" placeholder="Search location..." autocomplete="off" />
         <button id="locateBtn">📍</button>
       </div>
       <div id="suggestions"></div>
@@ -103,10 +103,6 @@
   <script>
     const API_KEY = "9b451df6-44e1-451e-ad03-872f2420b92b";
     const map = L.map('map').setView([31.963158, 35.930359], 8);
-
-    // 🧠 Prevent map drag/zoom when typing
-    map.scrollWheelZoom.enable();
-    let typing = false;
 
     L.tileLayer(
       `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}.png?api_key=${API_KEY}`,
@@ -119,36 +115,35 @@
     let selectedLng = 35.930359;
 
     const marker = L.marker([selectedLat, selectedLng], { draggable: true }).addTo(map);
-    marker.bindPopup("Loading address...").openPopup();
+    marker.bindPopup("Select a location").openPopup();
 
+    // ✅ show address only above pin (not in search bar)
     function updateAddress(lat, lng) {
       fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
         .then(res => res.json())
         .then(data => {
           const address = data.display_name || 'Unknown location';
-          searchInput.value = address;
           marker.bindPopup(address, { closeButton: false }).openPopup();
         })
         .catch(() => marker.bindPopup('Failed to get address').openPopup());
     }
 
-    // 🧭 Map click
+    // 📍 click map
     map.on('click', e => {
-      if (typing) return; // 🔒 Ignore clicks while typing
       const { lat, lng } = e.latlng;
       selectedLat = lat; selectedLng = lng;
       marker.setLatLng(e.latlng);
       updateAddress(lat, lng);
     });
 
-    // 🎯 Marker drag
+    // 🎯 drag pin
     marker.on('dragend', e => {
       const { lat, lng } = e.target.getLatLng();
       selectedLat = lat; selectedLng = lng;
       updateAddress(lat, lng);
     });
 
-    // 📍 Locate button
+    // 🔘 locate button
     document.getElementById('locateBtn').addEventListener('click', () => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -167,10 +162,7 @@
       }
     });
 
-    // 🔍 Autocomplete search
-    searchInput.addEventListener("focus", () => typing = true);
-    searchInput.addEventListener("blur", () => setTimeout(() => typing = false, 300));
-
+    // 🔍 search autocomplete
     searchInput.addEventListener("input", async (e) => {
       const query = e.target.value.trim();
       if (query.length < 3) {
@@ -195,9 +187,9 @@
             selectedLng = lng;
             map.setView([lat, lng], 16);
             marker.setLatLng([lat, lng]);
-            searchInput.value = feature.properties.label;
             marker.bindPopup(feature.properties.label).openPopup();
             suggestionsBox.style.display = "none";
+            searchInput.value = ""; // keep input empty
           };
           suggestionsBox.appendChild(item);
         });
@@ -215,16 +207,13 @@
 
     // ✅ Confirm
     document.getElementById("confirmBtn").addEventListener("click", async () => {
-      const address = searchInput.value;
       const payload = { latitude: selectedLat, longitude: selectedLng };
-
       await fetch("/select-location/save/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-
-      window.location.href = `myapp://pick-location?lat=${selectedLat}&lng=${selectedLng}&address=${encodeURIComponent(address)}`;
+      window.location.href = `myapp://pick-location?lat=${selectedLat}&lng=${selectedLng}`;
     });
   </script>
 </body>
